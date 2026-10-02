@@ -8,7 +8,7 @@
 
 SportBookVN là một nền tảng website hỗ trợ người dùng tìm kiếm, so sánh và đặt sân thể thao (Bóng đá, Cầu lông, Tennis, Pickleball,...) một cách nhanh chóng. Đồng thời, nền tảng cung cấp bộ công cụ quản lý chuyên nghiệp dành cho các Chủ sân và Quản trị viên (Admin).
 
-Đây là sản phẩm của Đồ án môn học **Quy trình Phần mềm (SEP)**.
+
 
 ---
 
