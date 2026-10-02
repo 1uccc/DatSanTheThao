@@ -8,7 +8,7 @@
 
 SportBookVN là một nền tảng website hỗ trợ người dùng tìm kiếm, so sánh và đặt sân thể thao (Bóng đá, Cầu lông, Tennis, Pickleball,...) một cách nhanh chóng. Đồng thời, nền tảng cung cấp bộ công cụ quản lý chuyên nghiệp dành cho các Chủ sân và Quản trị viên (Admin).
 
-Đây là sản phẩm của Đồ án môn học **Quy trình Phần mềm (SEP)**.
+
 
 ---
 
@@ -96,12 +96,4 @@ Sau khi chạy thành công, truy cập vào `http://localhost:5173` để trả
 ## 📄 Hệ Thống Tài Liệu Kỹ Thuật (SEP Documents)
 Toàn bộ tài liệu Đặc tả yêu cầu (SRS), Sơ đồ kiến trúc (Architecture Design), Thiết kế cơ sở dữ liệu và Kịch bản kiểm thử (Test Cases) được đặt trong các thư mục gốc của repository nhằm tuân thủ tuyệt đối quy trình quản lý phần mềm SEP.
 
-```text
-SEP_NoiDung_DatSanTheThao
-├── 1. PROJECT MANAGEMENT/            # Kế hoạch dự án, rủi ro, phân chia công việc
-├── 2. CONTEXT AND SYSTEM REQUIREMENT/# Danh sách chức năng, ma trận truy vết
-├── 3. SOFTWARE ARCHITECTURE & DESIGN/# Kiến trúc phần mềm & Cấu trúc Database Firestore
-├── 4. TESTING/                       # Kế hoạch và Báo cáo kiểm thử, Test Case
-└── code/                             # Mã nguồn hệ thống (Frontend & Backend)
-```
 
