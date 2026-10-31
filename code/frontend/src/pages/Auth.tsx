@@ -84,12 +84,35 @@ export function Auth() {
     }
   };
 
+  const redirectAfterAuth = (userRole: string = 'customer') => {
+    if (redirectTo?.startsWith('/')) {
+      if (redirectTo === '/checkout') {
+        if (userRole === 'owner') {
+          navigate('/');
+          return;
+        }
+        let pendingState: any = null;
+        try {
+          const raw = localStorage.getItem('sportbook-pending-checkout') || sessionStorage.getItem('sportbook-pending-checkout');
+          if (raw) pendingState = JSON.parse(raw);
+        } catch {}
+        navigate('/checkout', { state: pendingState || undefined });
+        return;
+      }
+      navigate(redirectTo);
+      return;
+    }
+    navigate('/');
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
     setLoading(true);
 
     try {
+      let userRole = 'customer';
+
       if (mode === 'register') {
         if (!fullName || !phone || !email || password.length < 8) {
           throw new Error('Vui lòng nhập đủ thông tin và dùng mật khẩu từ 8 ký tự.');
@@ -104,8 +127,8 @@ export function Auth() {
         await syncUserToBackend(token, { email, fullName, role: 'customer', phone });
 
         localStorage.setItem('token', token);
-        localStorage.setItem('sportbook-session', JSON.stringify({ role: 'customer', email, name: fullName }));
-        
+        localStorage.setItem('sportbook-session', JSON.stringify({ role: 'customer', email, name: fullName, phone }));
+        userRole = 'customer';
       } else {
         // Đăng nhập
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -115,6 +138,7 @@ export function Auth() {
         // Fetch user profile to get role and status
         let role = 'customer';
         let name = user.email;
+        let phone = '';
         let status = 'active';
         try {
           const profileRes = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile`, {
@@ -124,6 +148,7 @@ export function Auth() {
             const profileData = await profileRes.json();
             if (profileData.role) role = profileData.role;
             if (profileData.fullName) name = profileData.fullName;
+            if (profileData.phone) phone = profileData.phone;
             if (profileData.status) status = profileData.status;
           }
         } catch (err) {
@@ -138,10 +163,11 @@ export function Auth() {
         }
 
         localStorage.setItem('token', token);
-        localStorage.setItem('sportbook-session', JSON.stringify({ role, email, name }));
+        localStorage.setItem('sportbook-session', JSON.stringify({ role, email, name, phone }));
+        userRole = role;
       }
       
-      navigate(redirectTo?.startsWith('/') ? redirectTo : '/');
+      redirectAfterAuth(userRole);
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('Email này đã được đăng ký.');
@@ -168,6 +194,7 @@ export function Auth() {
 
       let role = 'customer';
       let status = 'active';
+      let phone = '';
       try {
         const profileRes = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -175,6 +202,7 @@ export function Auth() {
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           if (profileData.role) role = profileData.role;
+          if (profileData.phone) phone = profileData.phone;
           if (profileData.status) status = profileData.status;
         }
       } catch (err) {
@@ -189,9 +217,9 @@ export function Auth() {
       }
 
       localStorage.setItem('token', token);
-      localStorage.setItem('sportbook-session', JSON.stringify({ role, email: user.email, name: user.displayName }));
+      localStorage.setItem('sportbook-session', JSON.stringify({ role, email: user.email, name: user.displayName, phone }));
       
-      navigate(redirectTo?.startsWith('/') ? redirectTo : '/');
+      redirectAfterAuth(role);
     } catch (err: any) {
       setError('Đã xảy ra lỗi với Google: ' + err.message);
     } finally {
