@@ -1,80 +1,55 @@
-const { db } = require('../config/firebase');
+/**
+ * [CONTROLLER LAYER] - bookingController
+ * Đóng vai trò tiếp nhận HTTP Request, validate tham số,
+ * ủy quyền xử lý nghiệp vụ & truy xuất database cho BookingRepository,
+ * và chuẩn hóa HTTP Response trả về client.
+ */
+
+const bookingRepository = require('../repositories/BookingRepository');
 
 // [Tạo Booking mới] (Khách hàng)
 exports.createBooking = async (req, res) => {
   try {
-    const { customerName, phone, fieldId, date, time, amount, paymentMethod, reference } = req.body;
-    
-    const fieldRef = db.collection('fields').doc(fieldId);
-    const fieldDoc = await fieldRef.get();
-    if (!fieldDoc.exists) return res.status(404).json({ message: 'Sân không tồn tại' });
-    const fieldData = fieldDoc.data();
+    const { fieldId, date, time } = req.body;
 
-    // Kiểm tra xem slot này đã có người đặt chưa (Lọc trên RAM để tránh lỗi thiếu Index Firestore)
-    const existingBookingsSnapshot = await db.collection('bookings')
-      .where('fieldId', '==', fieldId)
-      .where('date', '==', date)
-      .get();
-      
-    const isBooked = existingBookingsSnapshot.docs.some(doc => {
-      const data = doc.data();
-      return data.time === time && ['pending', 'confirmed', 'paid'].includes(data.status);
-    });
-      
-    if (isBooked) {
-      return res.status(400).json({ message: 'Khung giờ này đã được đặt hoặc đang chờ xác nhận. Vui lòng chọn khung giờ khác.' });
+    // Phân quyền
+    if (req.user && req.user.role === 'owner') {
+      return res.status(403).json({ message: 'Tài khoản Chủ sân không thể thực hiện đặt sân. Vui lòng sử dụng tài khoản Khách hàng.' });
+    }
+    if (req.user && req.user.role !== 'customer') {
+      return res.status(403).json({ message: 'Chỉ tài khoản Khách hàng mới có thể đặt sân.' });
     }
 
-    // Tạo mã đơn ngẫu nhiên SPB-XXXX
-    const bookingCode = `SPB-${Math.floor(1000 + Math.random() * 9000)}`;
+    if (!fieldId || !date || !time) {
+      return res.status(400).json({ message: 'Thiếu thông tin bắt buộc (fieldId, date, time).' });
+    }
 
-    const newBooking = {
-      bookingCode, customerName, phone, 
-      fieldId: fieldId, fieldName: fieldData.name,
-      date, time, amount, paymentMethod, reference,
-      userId: req.user ? req.user.uid : null,
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    };
-
-    const bookingRef = await db.collection('bookings').add(newBooking);
-
-    // Tăng số lượng booking cho sân
-    await fieldRef.update({
-      bookings: (fieldData.bookings || 0) + 1
-    });
-
-    res.status(201).json({ message: 'Đặt sân thành công', booking: { id: bookingRef.id, ...newBooking } });
+    const booking = await bookingRepository.createWithTransaction(req.body, req.user ? req.user.uid : null);
+    res.status(201).json({ message: 'Đặt sân thành công', booking });
   } catch (error) {
+    if (error.message === 'FIELD_NOT_FOUND') {
+      return res.status(404).json({ message: 'Sân không tồn tại' });
+    }
+    if (error.message === 'SLOT_ALREADY_BOOKED') {
+      return res.status(400).json({ message: 'Khung giờ này đã được đặt hoặc đang chờ xác nhận. Vui lòng chọn khung giờ khác.' });
+    }
     res.status(500).json({ message: 'Lỗi khi đặt sân', error: error.message });
   }
 };
 
-// [Lấy danh sách Booking] (Cho Admin/Owner)
+// [Lấy danh sách Booking] (Theo phân quyền: Admin, Owner, Customer)
 exports.getAllBookings = async (req, res) => {
   try {
-    let query = db.collection('bookings');
-    
-    // Nếu là chủ sân, chỉ lấy đơn của sân họ
     if (req.user && req.user.role === 'owner') {
-      const ownerFieldsSnapshot = await db.collection('fields').where('owner', '==', req.user.uid).get();
-      const ownerFieldIds = ownerFieldsSnapshot.docs.map(doc => doc.id);
-      
-      if (ownerFieldIds.length > 0) {
-        query = query.where('fieldId', 'in', ownerFieldIds);
-      } else {
-         return res.json([]); // Không có sân nào, trả về rỗng
-      }
+      const bookings = await bookingRepository.getByOwnerId(req.user.uid);
+      return res.json(bookings);
     } else if (req.user && req.user.role === 'customer') {
-      // Nếu là khách hàng, lấy danh sách sân đã đặt
-      query = query.where('userId', '==', req.user.uid);
+      const bookings = await bookingRepository.getByUserId(req.user.uid);
+      return res.json(bookings);
     }
 
-    const snapshot = await query.get();
-    const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    // Sắp xếp giảm dần theo thời gian tạo
-    bookings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    
+    // Admin
+    const bookings = await bookingRepository.getAll();
     res.json(bookings);
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
@@ -87,11 +62,31 @@ exports.updateBookingStatus = async (req, res) => {
     const { status } = req.body;
     const bookingId = req.params.id;
 
-    const bookingRef = db.collection('bookings').doc(bookingId);
-    await bookingRef.update({ status, updatedAt: new Date().toISOString() });
-    
-    res.json({ message: 'Cập nhật trạng thái thành công', bookingId, status });
+    if (!status) {
+      return res.status(400).json({ message: 'Thiếu trạng thái mới.' });
+    }
+
+    const existing = await bookingRepository.getById(bookingId);
+    if (!existing) {
+      return res.status(404).json({ message: 'Không tìm thấy đơn đặt sân.' });
+    }
+
+    // Nếu là Customer, chỉ cho phép tự hủy đơn nếu đơn đang là 'pending' và thuộc về chính họ
+    if (req.user.role === 'customer') {
+      if (existing.userId !== req.user.uid) {
+        return res.status(403).json({ message: 'Bạn không có quyền thao tác trên đơn này.' });
+      }
+      if (status !== 'cancelled' || existing.status !== 'pending') {
+        return res.status(400).json({ message: 'Khách hàng chỉ có thể tự hủy đơn khi đơn đang ở trạng thái Chờ xác nhận.' });
+      }
+    }
+
+    const result = await bookingRepository.updateStatus(bookingId, status);
+    res.json({ message: 'Cập nhật trạng thái thành công', ...result });
   } catch (error) {
-    res.status(500).json({ message: 'Lỗi khi cập nhật', error: error.message });
+    if (error.message.startsWith('INVALID_TRANSITION')) {
+      return res.status(400).json({ message: `Chuyển đổi trạng thái không hợp lệ: ${error.message}` });
+    }
+    res.status(500).json({ message: 'Lỗi khi cập nhật trạng thái', error: error.message });
   }
 };

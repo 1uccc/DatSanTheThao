@@ -40,7 +40,55 @@ const updateSettings = async (req, res) => {
   }
 };
 
+const getOwnerPaymentSettings = async (req, res) => {
+  try {
+    const ownerId = req.params.ownerId;
+    const docRef = db.collection('paymentSettings').doc(ownerId);
+    const doc = await docRef.get();
+    
+    if (!doc.exists) {
+      return res.json({
+        bank: 'Vietcombank',
+        accountNumber: '',
+        accountName: '',
+        momoPhone: '',
+        momoName: '',
+        enabledMethods: ['zalopay', 'momo', 'vnpay', 'card'],
+        qrCodes: {}
+      });
+    }
+    
+    res.json(doc.data());
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
+const updateOwnerPaymentSettings = async (req, res) => {
+  try {
+    const ownerId = req.user.uid;
+    const { bank, accountNumber, accountName, momoPhone, momoName, enabledMethods, qrCodes } = req.body;
+    
+    const docRef = db.collection('paymentSettings').doc(ownerId);
+    await docRef.set({
+      bank,
+      accountNumber,
+      accountName,
+      momoPhone: momoPhone || '',
+      momoName: momoName || '',
+      enabledMethods,
+      qrCodes
+    }, { merge: true });
+    
+    res.json({ message: 'Cập nhật thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server' });
+  }
+};
+
 module.exports = {
   getSettings,
-  updateSettings
+  updateSettings,
+  getOwnerPaymentSettings,
+  updateOwnerPaymentSettings
 };
