@@ -8,6 +8,7 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { LegalModal, LegalTab } from '../components/common/LegalModal';
 
 type AuthMode = 'login' | 'register';
 
@@ -37,6 +38,9 @@ export function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [legalModalOpen, setLegalModalOpen] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<LegalTab>('terms');
 
   const changeMode = (nextMode: AuthMode) => {
     setMode(nextMode);
@@ -84,12 +88,41 @@ export function Auth() {
     }
   };
 
+  const redirectAfterAuth = (userRole: string = 'customer') => {
+    if (redirectTo?.startsWith('/')) {
+      if (redirectTo === '/checkout') {
+        if (userRole === 'owner') {
+          navigate('/');
+          return;
+        }
+        let pendingState: any = null;
+        try {
+          const raw = localStorage.getItem('sportbook-pending-checkout') || sessionStorage.getItem('sportbook-pending-checkout');
+          if (raw) pendingState = JSON.parse(raw);
+        } catch {}
+        navigate('/checkout', { state: pendingState || undefined });
+        return;
+      }
+      navigate(redirectTo);
+      return;
+    }
+    navigate('/');
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+
+    if (!agreeTerms) {
+      setError('Vui lòng tích chọn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật trước khi tiếp tục.');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      let userRole = 'customer';
+
       if (mode === 'register') {
         if (!fullName || !phone || !email || password.length < 8) {
           throw new Error('Vui lòng nhập đủ thông tin và dùng mật khẩu từ 8 ký tự.');
@@ -104,8 +137,8 @@ export function Auth() {
         await syncUserToBackend(token, { email, fullName, role: 'customer', phone });
 
         localStorage.setItem('token', token);
-        localStorage.setItem('sportbook-session', JSON.stringify({ role: 'customer', email, name: fullName }));
-        
+        localStorage.setItem('sportbook-session', JSON.stringify({ role: 'customer', email, name: fullName, phone, uid: user.uid }));
+        userRole = 'customer';
       } else {
         // Đăng nhập
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -115,6 +148,7 @@ export function Auth() {
         // Fetch user profile to get role and status
         let role = 'customer';
         let name = user.email;
+        let phone = '';
         let status = 'active';
         try {
           const profileRes = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile`, {
@@ -124,6 +158,7 @@ export function Auth() {
             const profileData = await profileRes.json();
             if (profileData.role) role = profileData.role;
             if (profileData.fullName) name = profileData.fullName;
+            if (profileData.phone) phone = profileData.phone;
             if (profileData.status) status = profileData.status;
           }
         } catch (err) {
@@ -138,10 +173,11 @@ export function Auth() {
         }
 
         localStorage.setItem('token', token);
-        localStorage.setItem('sportbook-session', JSON.stringify({ role, email, name }));
+        localStorage.setItem('sportbook-session', JSON.stringify({ role, email, name, phone, uid: user.uid }));
+        userRole = role;
       }
       
-      navigate(redirectTo?.startsWith('/') ? redirectTo : '/');
+      redirectAfterAuth(userRole);
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('Email này đã được đăng ký.');
@@ -157,6 +193,12 @@ export function Auth() {
 
   const handleGoogleAuth = async () => {
     setError('');
+
+    if (!agreeTerms) {
+      setError('Vui lòng tích chọn đồng ý với Điều khoản dịch vụ và Chính sách bảo mật trước khi tiếp tục.');
+      return;
+    }
+
     setLoading(true);
     try {
       const provider = new GoogleAuthProvider();
@@ -168,6 +210,7 @@ export function Auth() {
 
       let role = 'customer';
       let status = 'active';
+      let phone = '';
       try {
         const profileRes = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -175,6 +218,7 @@ export function Auth() {
         if (profileRes.ok) {
           const profileData = await profileRes.json();
           if (profileData.role) role = profileData.role;
+          if (profileData.phone) phone = profileData.phone;
           if (profileData.status) status = profileData.status;
         }
       } catch (err) {
@@ -189,9 +233,9 @@ export function Auth() {
       }
 
       localStorage.setItem('token', token);
-      localStorage.setItem('sportbook-session', JSON.stringify({ role, email: user.email, name: user.displayName }));
+      localStorage.setItem('sportbook-session', JSON.stringify({ role, email: user.email, name: user.displayName, phone, uid: user.uid }));
       
-      navigate(redirectTo?.startsWith('/') ? redirectTo : '/');
+      redirectAfterAuth(role);
     } catch (err: any) {
       setError('Đã xảy ra lỗi với Google: ' + err.message);
     } finally {
@@ -333,6 +377,55 @@ export function Auth() {
               </div>
             </div>
 
+            {/* Checkbox bắt buộc đồng ý điều khoản dịch vụ và chính sách bảo mật */}
+            <div
+              className={`rounded-xl p-3 border transition-all ${
+                !agreeTerms && error.includes('đồng ý')
+                  ? 'border-red-300 bg-red-50/70 ring-2 ring-red-200'
+                  : 'border-slate-200/80 bg-slate-50/60 hover:bg-slate-50'
+              }`}
+            >
+              <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                <input
+                  id="agreeTerms"
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(event) => {
+                    setAgreeTerms(event.target.checked);
+                    if (event.target.checked && error.includes('đồng ý')) {
+                      setError('');
+                    }
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-green-600 focus:ring-green-500 cursor-pointer accent-green-600 shrink-0"
+                />
+                <span className="text-xs text-slate-600 leading-relaxed">
+                  Tôi đã đọc và đồng ý với{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLegalModalTab('terms');
+                      setLegalModalOpen(true);
+                    }}
+                    className="font-semibold text-green-700 hover:text-green-800 underline underline-offset-2"
+                  >
+                    Điều khoản dịch vụ
+                  </button>{' '}
+                  và{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLegalModalTab('privacy');
+                      setLegalModalOpen(true);
+                    }}
+                    className="font-semibold text-green-700 hover:text-green-800 underline underline-offset-2"
+                  >
+                    Chính sách bảo mật
+                  </button>{' '}
+                  của SportBook.
+                </span>
+              </label>
+            </div>
+
             {error && (
               <p role="alert" className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
             )}
@@ -369,7 +462,29 @@ export function Auth() {
           </form>
 
           <p className="mt-6 text-center text-xs leading-relaxed text-slate-400">
-            Bằng việc tiếp tục, bạn đồng ý với <button className="font-medium text-slate-600 hover:text-green-700">Điều khoản dịch vụ</button> và <button className="font-medium text-slate-600 hover:text-green-700">Chính sách bảo mật</button>.
+            Bằng việc tiếp tục, bạn đồng ý với{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setLegalModalTab('terms');
+                setLegalModalOpen(true);
+              }}
+              className="font-medium text-slate-600 hover:text-green-700 underline underline-offset-2"
+            >
+              Điều khoản dịch vụ
+            </button>{' '}
+            và{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setLegalModalTab('privacy');
+                setLegalModalOpen(true);
+              }}
+              className="font-medium text-slate-600 hover:text-green-700 underline underline-offset-2"
+            >
+              Chính sách bảo mật
+            </button>
+            .
           </p>
           <div className="mt-5 flex items-center justify-center gap-2 rounded-xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-900">
             <span>Bạn đang vận hành sân thể thao?</span>
@@ -379,6 +494,17 @@ export function Auth() {
           </div>
         </div>
       </section>
+
+      {/* Modal Điều khoản dịch vụ & Chính sách bảo mật */}
+      <LegalModal
+        isOpen={legalModalOpen}
+        initialTab={legalModalTab}
+        onClose={() => setLegalModalOpen(false)}
+        onAgree={() => {
+          setAgreeTerms(true);
+          if (error.includes('đồng ý')) setError('');
+        }}
+      />
     </main>
   );
 }

@@ -24,8 +24,12 @@ app.use(cors({
     'http://127.0.0.1:5173',
     'http://127.0.0.1:8443',
     /^http:\/\/localhost:\d+$/,
+    'https://sportbookvn.web.app',
+    'https://sportbookvn.firebaseapp.com',
     'https://datsanthethao-53c04.web.app',
-    'https://datsanthethao-53c04.firebaseapp.com'
+    'https://datsanthethao-53c04.firebaseapp.com',
+    /^https:\/\/.*\.web\.app$/,
+    /^https:\/\/.*\.firebaseapp\.com$/
   ],
   credentials: true
 }));

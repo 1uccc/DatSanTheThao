@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "format": "oxfmt"
+    "format": "oxfmt",
+    "deploy:test": "node -e \"try{require('fs').rmSync('.firebase',{recursive:true,force:true})}catch(e){}\" && vite build && firebase deploy --only hosting:datsanthethao",
+    "deploy:prod": "node -e \"try{require('fs').rmSync('.firebase',{recursive:true,force:true})}catch(e){}\" && vite build && firebase deploy --only hosting:sportbookvn"
   },
   "dependencies": {
     "firebase": "^12.19.0",

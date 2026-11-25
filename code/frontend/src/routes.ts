@@ -18,6 +18,7 @@ import { AdminSettings } from './pages/admin/Settings';
 import { AdminContacts } from './pages/admin/Contacts';
 import { OwnerRegistration } from './pages/OwnerRegistration';
 import { OwnerPaymentSettings } from './pages/owner/PaymentSettings';
+import { OwnerMessages } from './pages/owner/Messages';
 import { ProfileSettings } from './pages/ProfileSettings';
 import { CustomerBookings } from './pages/CustomerBookings';
 
@@ -62,6 +63,7 @@ export const router = createBrowserRouter([
       { index: true, Component: OwnerDashboard },
       { path: 'bookings', Component: OwnerBookings },
       { path: 'fields', Component: FieldManagement },
+      { path: 'messages', Component: OwnerMessages },
       { path: 'payment', Component: OwnerPaymentSettings },
       { path: 'profile', Component: ProfileSettings },
     ],

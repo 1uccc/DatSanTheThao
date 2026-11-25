@@ -56,7 +56,7 @@ class FieldFactory {
       active: rawData.active !== undefined ? Boolean(rawData.active) : true,
       owner: ownerUid,
       bookings: 0,
-      rating: 5.0,
+      rating: 0,
       reviews: 0,
       createdAt: new Date().toISOString(),
     };

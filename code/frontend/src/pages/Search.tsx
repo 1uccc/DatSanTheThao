@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { RatingStars } from '../components/common/RatingStars';
 
 const PROVINCES = ['An Giang', 'Bà Rịa - Vũng Tàu', 'Bạc Liêu', 'Bắc Giang', 'Bắc Kạn', 'Bắc Ninh', 'Bến Tre', 'Bình Dương', 'Bình Định', 'Bình Phước', 'Bình Thuận', 'Cà Mau', 'Cao Bằng', 'Cần Thơ', 'Đà Nẵng', 'Đắk Lắk', 'Đắk Nông', 'Điện Biên', 'Đồng Nai', 'Đồng Tháp', 'Gia Lai', 'Hà Giang', 'Hà Nam', 'Hà Nội', 'Hà Tĩnh', 'Hải Dương', 'Hải Phòng', 'Hậu Giang', 'Hòa Bình', 'Hưng Yên', 'Khánh Hòa', 'Kiên Giang', 'Kon Tum', 'Lai Châu', 'Lạng Sơn', 'Lào Cai', 'Lâm Đồng', 'Long An', 'Nam Định', 'Nghệ An', 'Ninh Bình', 'Ninh Thuận', 'Phú Thọ', 'Phú Yên', 'Quảng Bình', 'Quảng Nam', 'Quảng Ngãi', 'Quảng Ninh', 'Quảng Trị', 'Sóc Trăng', 'Sơn La', 'Tây Ninh', 'Thái Bình', 'Thái Nguyên', 'Thanh Hóa', 'Thừa Thiên Huế', 'Tiền Giang', 'TP.HCM', 'Trà Vinh', 'Tuyên Quang', 'Vĩnh Long', 'Vĩnh Phúc', 'Yên Bái'];
 
@@ -28,14 +29,18 @@ export function SearchPage() {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/fields`);
         if (res.ok) {
           const data = await res.json();
-          setFields(data.filter((f: any) => f.active).map((f: any) => ({
-            ...f,
-            location: f.location || f.address,
-            rating: f.rating || 0,
-            reviews: f.reviews || 0,
-            distance: f.distance || (Math.random() * 5 + 1).toFixed(1),
-            slots: ['06:00', '08:00', '17:00', '19:00'], // dummy slots for now
-          })));
+          setFields(data.filter((f: any) => f.active).map((f: any) => {
+            const reviews = Number(f.reviews) || 0;
+            const rating = reviews > 0 ? (Number(f.rating) || 0) : 0;
+            return {
+              ...f,
+              location: f.location || f.address,
+              reviews,
+              rating,
+              distance: f.distance || (Math.random() * 5 + 1).toFixed(1),
+              slots: ['06:00', '08:00', '17:00', '19:00'], // dummy slots for now
+            };
+          }));
         }
       } catch (err) {
         console.error(err);
@@ -223,9 +228,18 @@ export function SearchPage() {
 
                       {/* Rating */}
                       <div className="flex items-center gap-1 mt-2">
-                        {[1,2,3,4,5].map(i => <svg key={i} className={`w-3.5 h-3.5 ${i <= Math.floor(field.rating || 5) ? 'text-amber-400' : 'text-gray-200'}`} fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>)}
-                        <span className="text-sm font-semibold text-gray-700 ml-1">{field.rating}</span>
-                        <span className="text-xs text-gray-400">({field.reviews} đánh giá)</span>
+                        {Number(field.reviews || 0) > 0 ? (
+                          <>
+                            <RatingStars rating={field.rating} size="w-3.5 h-3.5" />
+                            <span className="text-sm font-semibold text-gray-700 ml-1">{field.rating}</span>
+                            <span className="text-xs text-gray-400">({field.reviews} đánh giá)</span>
+                          </>
+                        ) : (
+                          <>
+                            <RatingStars rating={0} size="w-3.5 h-3.5" />
+                            <span className="text-xs text-gray-400 ml-1">Chưa có đánh giá</span>
+                          </>
+                        )}
                       </div>
 
                       {/* Amenities */}
@@ -275,8 +289,14 @@ export function SearchPage() {
                     <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{field.location}</p>
                     <div className="flex items-center justify-between mt-auto pt-3">
                       <div className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                        <span className="text-sm font-medium">{field.rating}</span>
+                        {Number(field.reviews || 0) > 0 ? (
+                          <>
+                            <svg className="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                            <span className="text-sm font-medium">{field.rating}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400">Chưa có đánh giá</span>
+                        )}
                       </div>
                       <span className="text-green-600 font-bold">{(field.price || 0).toLocaleString('vi-VN')}đ/{field.schedule?.slotMinutes ?? 90} phút</span>
                     </div>

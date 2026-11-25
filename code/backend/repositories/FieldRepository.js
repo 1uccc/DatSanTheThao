@@ -22,7 +22,13 @@ class FieldRepository {
 
     query = query.limit(Number(limit) || 100);
     const snapshot = await query.get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      const reviews = Number(data.reviews) || 0;
+      // Chuẩn hóa: nếu chưa có đánh giá nào thì rating luôn là 0
+      const rating = reviews > 0 ? (Number(data.rating) || 0) : 0;
+      return { id: doc.id, ...data, reviews, rating };
+    });
   }
 
   /**
@@ -31,7 +37,10 @@ class FieldRepository {
   async getById(fieldId) {
     const doc = await db.collection('fields').doc(fieldId).get();
     if (!doc.exists) return null;
-    return { id: doc.id, ...doc.data() };
+    const data = doc.data();
+    const reviews = Number(data.reviews) || 0;
+    const rating = reviews > 0 ? (Number(data.rating) || 0) : 0;
+    return { id: doc.id, ...data, reviews, rating };
   }
 
   /**
@@ -102,15 +111,15 @@ class FieldRepository {
     }
 
     const field = fieldDoc.data();
-    const currentRating = Number(field.rating) || 5.0;
+    const currentRating = Number(field.rating) || 0;
     const currentReviewCount = Number(field.reviews) || 0;
     const newRatingVal = Number(reviewData.rating);
 
     // Công thức tính trung bình lũy kế:
-    // newAverage = (currentAverage * oldCount + newRating) / (oldCount + 1)
-    const newAverageRating = Math.round(
-      ((currentRating * currentReviewCount + newRatingVal) / (currentReviewCount + 1)) * 10
-    ) / 10;
+    // Nếu chưa có đánh giá nào (count = 0), điểm rating ban đầu là điểm của review mới
+    const newAverageRating = currentReviewCount === 0
+      ? newRatingVal
+      : Math.round(((currentRating * currentReviewCount + newRatingVal) / (currentReviewCount + 1)) * 10) / 10;
 
     const newReview = {
       fieldId,

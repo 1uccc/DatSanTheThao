@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
+import { RatingStars } from '../components/common/RatingStars';
 
 const PROVINCES = ['An Giang', 'Bà Rịa - Vũng Tàu', 'Bạc Liêu', 'Bắc Giang', 'Bắc Kạn', 'Bắc Ninh', 'Bến Tre', 'Bình Dương', 'Bình Định', 'Bình Phước', 'Bình Thuận', 'Cà Mau', 'Cao Bằng', 'Cần Thơ', 'Đà Nẵng', 'Đắk Lắk', 'Đắk Nông', 'Điện Biên', 'Đồng Nai', 'Đồng Tháp', 'Gia Lai', 'Hà Giang', 'Hà Nam', 'Hà Nội', 'Hà Tĩnh', 'Hải Dương', 'Hải Phòng', 'Hậu Giang', 'Hòa Bình', 'Hưng Yên', 'Khánh Hòa', 'Kiên Giang', 'Kon Tum', 'Lai Châu', 'Lạng Sơn', 'Lào Cai', 'Lâm Đồng', 'Long An', 'Nam Định', 'Nghệ An', 'Ninh Bình', 'Ninh Thuận', 'Phú Thọ', 'Phú Yên', 'Quảng Bình', 'Quảng Nam', 'Quảng Ngãi', 'Quảng Ninh', 'Quảng Trị', 'Sóc Trăng', 'Sơn La', 'Tây Ninh', 'Thái Bình', 'Thái Nguyên', 'Thanh Hóa', 'Thừa Thiên Huế', 'Tiền Giang', 'TP.HCM', 'Trà Vinh', 'Tuyên Quang', 'Vĩnh Long', 'Vĩnh Phúc', 'Yên Bái'];
 
@@ -25,7 +26,14 @@ export function Home() {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/api/fields`);
         if (res.ok) {
           const data = await res.json();
-          setFields(data.filter((f: any) => f.active));
+          setFields(data.filter((f: any) => f.active).map((f: any) => {
+            const reviews = Number(f.reviews) || 0;
+            return {
+              ...f,
+              reviews,
+              rating: reviews > 0 ? (Number(f.rating) || 0) : 0,
+            };
+          }));
         }
       } catch (err) {
         console.error('Lỗi lấy danh sách sân:', err);
@@ -57,10 +65,11 @@ export function Home() {
   return (
     <div>
       {/* Hero */}
-      <section className="relative min-h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative min-h-[600px] flex items-center justify-center overflow-hidden bg-gray-900">
         <img
           src="https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?w=1600&h=900&fit=crop&auto=format"
-          alt="Football field"
+          alt=""
+          onError={e => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-gray-900/70 via-gray-900/60 to-gray-900/80" />
@@ -213,12 +222,17 @@ export function Home() {
                 </div>
                 <div className="flex items-center justify-between mt-auto">
                   <div className="flex items-center gap-1">
-                    <div className="flex items-center gap-0.5">
-                      {[1,2,3,4,5].map(i => (
-                        <svg key={i} className={`w-3.5 h-3.5 ${i <= Math.floor(field.rating || 0) ? 'text-amber-400' : 'text-gray-200'}`} fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                      ))}
-                    </div>
-                    <span className="text-xs text-gray-500">({field.reviews || 0})</span>
+                    {Number(field.reviews || 0) > 0 ? (
+                      <>
+                        <RatingStars rating={field.rating} size="w-3.5 h-3.5" />
+                        <span className="text-xs text-gray-500 font-medium ml-1">({field.reviews})</span>
+                      </>
+                    ) : (
+                      <>
+                        <RatingStars rating={0} size="w-3.5 h-3.5" />
+                        <span className="text-xs text-gray-400 ml-1">Chưa có đánh giá</span>
+                      </>
+                    )}
                   </div>
                   <div className="text-right">
                     <span className="text-green-600 font-bold text-base">{(field.price || 0).toLocaleString('vi-VN')}đ</span>
@@ -264,10 +278,11 @@ export function Home() {
       </section>
 
       {/* CTA Banner */}
-      <section className="relative py-20 px-4 overflow-hidden">
+      <section className="relative py-20 px-4 overflow-hidden bg-green-700">
         <img
           src="https://images.unsplash.com/photo-1540747913346-19212a4d5efb?w=1400&h=500&fit=crop&auto=format"
-          alt="Sports field"
+          alt=""
+          onError={e => { (e.currentTarget as HTMLElement).style.display = 'none'; }}
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-green-700/85" />
